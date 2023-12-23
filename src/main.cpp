@@ -14,6 +14,7 @@
 // https://github.com/libusb/hidapi
 #include <hidapi.h>
 
+#include <windows.h> 
 
 #define LOG(x) std::cout << "[" << __FILE__ << " L" << __LINE__ << "] " << x << std::endl;
 #define MAX_STR 255
@@ -23,25 +24,25 @@ const std::string LEFT_GLOVE = "1915:EEE1";
 const int VENDOR_ID = 0x1915;
 const int RIGHT_GLOVE_PRODUCT_ID = 0xEEE0;
 const int LEFT_GLOVE_PRODUCT_ID = 0xEEE1;
-const std::string RIGHT_PIPE  = "\\\\.\\pipe\\vrapplication\\input\\glove\\v2\\right";
-const std::string LEFT_PIPE   = "\\\\.\\pipe\\vrapplication\\input\\glove\\v2\\left";
+#define RIGHT_PIPE  "\\\\.\\pipe\\vrapplication\\input\\glove\\v2\\right"
+#define LEFT_PIPE   "\\\\.\\pipe\\vrapplication\\input\\glove\\v2\\left"
 
 // OpenGlove data structures
 typedef struct OpenGloveInputData
 {  
-    const std::array<std::array<float, 4>, 5> flexion;
-    const std::array<float, 5> splay;
-    const float joyX;
-    const float joyY;
-    const bool joyButton;
-    const bool trgButton;
-    const bool aButton;
-    const bool bButton;
-    const bool grab;
-    const bool pinch;
-    const bool menu;
-    const bool calibrate;
-    const float trgValue;
+    std::array<std::array<float, 4>, 5> flexion;
+    std::array<float, 5> splay;
+    float joyX;
+    float joyY;
+    bool joyButton;
+    bool trgButton;
+    bool aButton;
+    bool bButton;
+    bool grab;
+    bool pinch;
+    bool menu;
+    bool calibrate;
+    float trgValue;
 } OpenGloveInputData;
 
 // Pulse data structures
@@ -69,7 +70,7 @@ union HIDBuffer
 class Glove
 {
 public:
-    Glove(int vid, int pid) : m_handle{ nullptr }, m_wstring{}, m_buffer{} { m_handle = hid_open(vid, pid, nullptr); }
+    Glove(int vid, int pid, LPCSTR pipename) : m_handle{ nullptr }, m_wstring{}, m_buffer{}, m_ogPipe{CreateFile(pipename, GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr)} { m_handle = hid_open(vid, pid, nullptr); }
     virtual ~Glove() { hid_close(m_handle); }
 
     // true if the glove is connected
@@ -85,6 +86,7 @@ private:
     hid_device* m_handle;
     wchar_t m_wstring[MAX_STR];
     HIDBuffer m_buffer;
+    HANDLE m_ogPipe;
 };
 
 /*
@@ -94,14 +96,12 @@ int main(int argc, char** argv)
 {
     LOG("Hello World!");
 
-    std::cout << "Fingerdata size " << sizeof(FingerData) << " GloveInput size " << sizeof(GloveInputReport) << std::endl;
-
     // initialize HID lib
     hid_init();
 
     // init gloves
-    Glove left{ VENDOR_ID, LEFT_GLOVE_PRODUCT_ID };
-    Glove right{ VENDOR_ID, RIGHT_GLOVE_PRODUCT_ID };
+    Glove left{ VENDOR_ID, LEFT_GLOVE_PRODUCT_ID, LEFT_PIPE };
+    Glove right{ VENDOR_ID, RIGHT_GLOVE_PRODUCT_ID, RIGHT_PIPE };
 
     // print diagnostics
     if (!left.isValid() && !right.isValid())
@@ -134,6 +134,8 @@ int main(int argc, char** argv)
     {
         LOG("Right Glove was not found!");
     }
+
+    // open pipes to OpenGloves
 
     // begin loop
     bool exit = false;
