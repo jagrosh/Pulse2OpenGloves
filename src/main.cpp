@@ -19,8 +19,6 @@
 #define LOG(x) std::cout << "[" << __FILE__ << " L" << __LINE__ << "] " << x << std::endl;
 #define MAX_STR 255
 
-const std::string RIGHT_GLOVE = "1915:EEE0";
-const std::string LEFT_GLOVE = "1915:EEE1";
 const int VENDOR_ID = 0x1915;
 const int RIGHT_GLOVE_PRODUCT_ID = 0xEEE0;
 const int LEFT_GLOVE_PRODUCT_ID = 0xEEE1;
@@ -70,7 +68,8 @@ union HIDBuffer
 class Glove
 {
 public:
-    Glove(int vid, int pid, LPCSTR pipename) : m_handle{ nullptr }, m_wstring{}, m_buffer{}, m_ogPipe{CreateFile(pipename, GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr)} { m_handle = hid_open(vid, pid, nullptr); }
+    Glove(int vid, int pid, LPCSTR pipename) : m_handle{ hid_open(vid, pid, nullptr) }, m_wstring{}, m_buffer{},
+        m_ogPipe{CreateFile(pipename, GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr)} {}
     virtual ~Glove() { hid_close(m_handle); }
 
     // true if the glove is connected
@@ -83,10 +82,14 @@ public:
     const std::string getSerialNumber() { hid_get_serial_number_string(m_handle, m_wstring, MAX_STR); std::wstring temp{ m_wstring }; return { temp.begin(), temp.end() }; }
     const std::string getIndexedString(const int i) { hid_get_indexed_string(m_handle, i, m_wstring, MAX_STR); std::wstring temp{ m_wstring }; return { temp.begin(), temp.end() }; }
 private:
+    // connection to glove
     hid_device* m_handle;
+    // pipe to opengloves
+    HANDLE m_ogPipe;
+
+    // temp vars
     wchar_t m_wstring[MAX_STR];
     HIDBuffer m_buffer;
-    HANDLE m_ogPipe;
 };
 
 /*
@@ -135,8 +138,6 @@ int main(int argc, char** argv)
         LOG("Right Glove was not found!");
     }
 
-    // open pipes to OpenGloves
-
     // begin loop
     bool exit = false;
     while (!exit)
@@ -156,7 +157,7 @@ int main(int argc, char** argv)
             // TODO: move data from buffer to ogid
             // TODO: write ogid to named pipe
 
-            // test code, remove later:
+            // TODO: test code, remove later:
             printf("buffer: ");
             for (int i = 0; i < sizeof(buffer); i++)
                 printf("%d ", buffer.buffer[i]);
